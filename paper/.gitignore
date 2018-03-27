@@ -1,0 +1,6 @@
+real_images
+segmentations
+figs
+top_k_results
+big_table_results
+sup_vid_results

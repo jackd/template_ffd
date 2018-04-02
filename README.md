@@ -1,5 +1,5 @@
 # template_ffd
-Code for paper "Learning Free-Form Deformations for 3D Object Reconstruction" in [this repository].
+Code for paper [Learning Free-Form Deformations for 3D Object Reconstruction](https://128.84.21.199/abs/1803.10932) in [this repository](https://github.com/jackd/template_ffd).
 
 # Getting Started
 ```
@@ -86,3 +86,14 @@ There are a number of steps to evaluation, depending on the metrics required.
 
 ## Paper Figures
 See the `paper` subdirectory for various scripts used to generate the figures presented in the paper.
+
+## Reference
+If you find this code useful in your research, please cite the [following paper](https://128.84.21.199/abs/1803.10932).
+```
+@article{jack2018learning,
+  title={Learning Free-Form Deformations for 3D Object Reconstruction},
+  author={Jack, Dominic and Pontes, Jhony K and Sridharan, Sridha and Fookes, Clinton and Shirazi, Sareh and Maire, Frederic and Eriksson, Anders},
+  journal={arXiv preprint arXiv:1803.10932},
+  year={2018}
+}
+```

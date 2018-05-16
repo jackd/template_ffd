@@ -1,5 +1,5 @@
 # template_ffd
-Code for paper [Learning Free-Form Deformations for 3D Object Reconstruction](https://128.84.21.199/abs/1803.10932) in [this repository](https://github.com/jackd/template_ffd).
+Code for paper [Learning Free-Form Deformations for 3D Object Reconstruction](https://arxiv.org/abs/1803.10932) in [this repository](https://github.com/jackd/template_ffd).
 
 # Getting Started
 ```

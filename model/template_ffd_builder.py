@@ -118,7 +118,7 @@ def get_cloud_dataset(cat_id, n_samples, n_resamples):
     # get_saved_dataset seems to give issues because we don't close properly
     # dataset = manager.get_saved_dataset()
     return dataset.map(
-        lambda x: sample_points(np.array(x), n_resamples))
+        lambda x: sample_points(np.array(x, dtype=np.float32), n_resamples))
 
 
 def get_dataset(

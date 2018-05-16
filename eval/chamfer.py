@@ -118,20 +118,21 @@ def get_chamfer_manager(model_id, pre_sampled=True, **kwargs):
 
 
 def report_chamfer_average(model_id, pre_sampled=True, **kwargs):
+    import os
     from shapenet.core import cat_desc_to_id
     from template_ffd.data.ids import get_example_ids
     from template_ffd.model import load_params
     manager = get_chamfer_manager(model_id, pre_sampled, **kwargs)
     cat_id = cat_desc_to_id(load_params(model_id)['cat_desc'])
     n_eval = len(get_example_ids(cat_id, 'eval'))
-    with manager.get_saving_dataset('r') as ds:
-        if len(ds) == n_eval:
-            values = np.array([ds.values()])
-        else:
-            values = None
+    values = None
+    if os.path.isfile(manager.path):
+        with manager.get_saving_dataset('r') as ds:
+            if len(ds) == n_eval:
+                values = np.array(tuple(ds.values()))
     if values is None:
         with manager.get_saved_dataset() as ds:
-            values = np.array([ds.values()])
+            values = np.array(tuple(ds.values()))
     print(np.mean(values))
 
 

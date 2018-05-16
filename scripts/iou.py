@@ -8,8 +8,8 @@ def create_and_report(
         edge_length_threshold=edge_length_threshold,
         filled=filled,
     )
-    if overwrite:
-        iou.create_iou_data(overwrite=overwrite, **kwargs)
+    # if overwrite:
+    #     iou.create_iou_data(overwrite=overwrite, **kwargs)
     iou.report_iou_average(**kwargs)
 
 

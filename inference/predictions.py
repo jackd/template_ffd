@@ -1,4 +1,4 @@
-from dids.hdf5 import Hdf5Dataset
+from dids.file_io.hdf5 import Hdf5Dataset
 from shapenet.util import LengthedGenerator
 from path import get_inference_path
 from template_ffd.model import get_builder

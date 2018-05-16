@@ -103,7 +103,8 @@ class IouAutoSavingManager(JsonAutoSavingManager):
         return iou_dataset
 
 
-def get_iou_dataset(model_id, edge_length_threshold=0.1, filled=False):
+def get_iou_dataset(
+        model_id, edge_length_threshold=0.1, filled=False, recalc=False):
     from shapenet.core import cat_desc_to_id
     from template_ffd.data.ids import get_example_ids
     from template_ffd.model import load_params
@@ -115,11 +116,12 @@ def get_iou_dataset(model_id, edge_length_threshold=0.1, filled=False):
         edge_length_threshold=edge_length_threshold,
         filled=filled
     )
-    with manager.get_saving_dataset() as ds:
-        needs_calc = len(ds) < n_eval
-    if needs_calc:
+    if not recalc:
+        with manager.get_saving_dataset() as ds:
+            recalc = len(ds) < n_eval
+    if recalc:
         manager.save_all()
-    return manager.get_saving_dataset()
+    return manager.get_saving_dataset('r')
 
 
 def report_iou_average(model_id, edge_length_threshold=0.1, filled=False):

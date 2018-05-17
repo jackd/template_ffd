@@ -1,6 +1,8 @@
 import os
 
 params_dir = os.path.join(os.path.dirname(__file__), 'params')
+if not os.path.isdir(params_dir):
+    os.makedirs(params_dir)
 
 
 def get_params_path(model_id):

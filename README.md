@@ -6,19 +6,29 @@ Code for paper [Learning Free-Form Deformations for 3D Object Reconstruction](ht
 cd /path/to/parent_dir
 git clone https://github.com/jackd/template_ffd.git
 # non-pip dependencies
-git clone https://github.com/jackd/dids.git
-git clone https://github.com/jackd/util3d.git
-git clone https://github.com/jackd/shapenet.git
+git clone https://github.com/jackd/dids.git                  # framework for manipulating datasets
+git clone https://github.com/jackd/util3d.git                # general 3d object utilities
+git clone https://github.com/jackd/shapenet.git              # dataset access
+git clone https://github.com/jackd/tf_nearest_neighbour.git  # for chamfer loss
+git clone https://github.com/jackd/tf_toolbox.git            # optional
 ```
 To run, ensure the parent directoy is on your `PYTHON_PATH`.
 ```
 export PYTHONPATH=$PYTHONPATH:/path/to/parent_dir
 ```
 
+So long as your `PYTHONPATH` is set as above, these repositories should work 'out of the box', except for `tf_nearest_neighbour` which requires the tensorflow op to be built. See the main [repository](https://github.com/jackd/tf_nearest_neighbour) for details.
+
 Install pip dependencies
 ```
 pip install h5py progress numpy
 ```
+
+To use visualizations you'll also need `mayavi`.
+```
+pip install mayavi
+```
+
 See [tensorflow documentation](https://www.tensorflow.org/install/) for installation. CUDA enabled GPU recommended.
 
 ## Data

@@ -130,7 +130,8 @@ def report_emd_average(model_id, pre_sampled=True, **kwargs):
             if len(ds) == n_eval:
                 values = np.array(tuple(ds.values()))
     if values is None:
-        with manager.get_saved_dataset() as ds:
+        manager.save_all()
+        with manager.get_saving_dataset('r') as ds:
             values = np.array(tuple(ds.values()))
     print(np.mean(values))
 

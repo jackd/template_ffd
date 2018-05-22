@@ -160,6 +160,7 @@ def get_dataset(
         dataset = dataset.batch(batch_size)
 
     dataset = dataset.prefetch(2)
+    # dataset = dataset.apply(tf.contrib.data.prefetch_to_device('/gpu:0'))
 
     return dataset
 

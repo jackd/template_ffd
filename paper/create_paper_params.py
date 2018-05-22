@@ -53,7 +53,7 @@ for cat in cats:
 
     # multi view param sets
     src = get_params_path('e_%s' % cat)
-    model_id = 'e_%s_v8'
+    model_id = 'e_%s_v8' % cat
 
     with open(src, 'r') as fp:
         ps = json.load(fp)

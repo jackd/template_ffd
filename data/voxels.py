@@ -13,10 +13,8 @@ def create_filled_data(unfilled_dataset, dst, overwrite=False, message=None):
     def map_fn(voxels):
         return DenseVoxels(
             filled_voxels(voxels.dense_data()),
-            voxels.dims,
             voxels.translate,
-            voxels.scale,
-            voxels.axis_order)
+            voxels.scale)
 
     src = unfilled_dataset.map(map_fn)
     with src:

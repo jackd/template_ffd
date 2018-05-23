@@ -435,10 +435,6 @@ class TemplateFfdBuilder(builder.ModelBuilder):
 
         def transform_predictions(probs, dp):
             i = np.argmax(probs)
-            # print(ps[i].shape)
-            # print(dp[i].shape)
-            # print(bs[i].shape)
-            # exit()
             vertices = np.matmul(bs[i], ps[i] + dp[i])
             faces = all_faces[i]
             original_vertices = all_vertices[i]
@@ -619,10 +615,13 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         vertices, faces, original_vertices = (
             mesh[k] for k in('vertices', 'faces', 'original_vertices'))
         mlab.figure()
-        vis_mesh(vertices, faces, color=(0, 1, 0), include_wireframe=False)
+        vis_mesh(
+            vertices, faces, color=(0, 1, 0), include_wireframe=False,
+            axis_order='xzy')
         mlab.figure()
         vis_mesh(
-            original_vertices, faces, color=(1, 0, 0), include_wireframe=False)
+            original_vertices, faces, color=(1, 0, 0), include_wireframe=False,
+            axis_order='xzy')
 
         plt.show(block=False)
         mlab.show()

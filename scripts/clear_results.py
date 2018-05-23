@@ -1,3 +1,6 @@
+#!/usr/bin/python
+
+
 def clear_results(model_id, actual=False):
     import os
     import shutil

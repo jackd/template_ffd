@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 
 def main(model_id):
     import tensorflow as tf

@@ -8,33 +8,37 @@ _default_config = VoxelConfig()
 
 
 def get_voxel_subdir(model_id, edge_length_threshold=0.1, voxel_config=None,
-                     filled=False):
+                     filled=False, view_index=None):
     if voxel_config is None:
         voxel_config = _default_config
     es = 'base' if edge_length_threshold is None else \
         str(edge_length_threshold)
     fs = 'filled' if filled else 'unfilled'
-    return get_inference_subdir(
-        'voxels', es, voxel_config.voxel_id, model_id, fs)
+    args = ['voxels', es, voxel_config.voxel_id, model_id, fs]
+    if view_index is not None:
+        args.append('v%d' % view_index)
+    return get_inference_subdir(*args)
 
 
 def get_voxel_dataset(
         model_id, edge_length_threshold=0.1, voxel_config=None, filled=False,
-        example_ids=None, auto_save=True):
+        example_ids=None, view_index=None, auto_save=True):
     kwargs = dict(
         model_id=model_id,
         edge_length_threshold=edge_length_threshold,
         voxel_config=voxel_config,
         filled=filled,
+        view_index=view_index
     )
+    subdir = get_voxel_subdir(**kwargs)
     if auto_save:
         create_voxel_data(example_ids=example_ids, overwrite=False, **kwargs)
-    return bvd.BinvoxDataset(get_voxel_subdir(**kwargs), mode='r')
+    return bvd.BinvoxDataset(subdir, mode='r')
 
 
 def _create_unfilled_voxel_data(
         model_id, edge_length_threshold=0.1, voxel_config=None,
-        overwrite=False, example_ids=None):
+        view_index=None, overwrite=False, example_ids=None):
     from template_ffd.data.ids import get_example_ids
     from shapenet.core import cat_desc_to_id
     from template_ffd.model import load_params
@@ -45,15 +49,17 @@ def _create_unfilled_voxel_data(
     cat_id = cat_desc_to_id(load_params(model_id)['cat_desc'])
     if example_ids is None:
         example_ids = get_example_ids(cat_id, 'eval')
-    mesh_dataset = get_inferred_mesh_dataset(model_id, edge_length_threshold)
+    mesh_dataset = get_inferred_mesh_dataset(
+        model_id, edge_length_threshold, view_index=view_index)
     voxel_dataset = get_voxel_dataset(
         model_id, edge_length_threshold, voxel_config, filled=False,
-        auto_save=False)
+        auto_save=False, view_index=view_index)
     if not overwrite:
         example_ids = [i for i in example_ids if i not in voxel_dataset]
     if len(example_ids) == 0:
         return
-    print('Creating %d voxels for model %s' % (len(example_ids), model_id))
+    print('Creating %d voxels for model %s, view %s'
+          % (len(example_ids), model_id, str(view_index)))
 
     kwargs = dict(
         voxel_dim=voxel_config.voxel_dim,
@@ -92,13 +98,14 @@ def _create_filled_voxel_data(**kwargs):
 
 def create_voxel_data(
         model_id, edge_length_threshold=0.1, voxel_config=None, filled=False,
-        overwrite=False, example_ids=None):
+        overwrite=False, example_ids=None, view_index=None):
     kwargs = dict(
         model_id=model_id,
         edge_length_threshold=edge_length_threshold,
         voxel_config=voxel_config,
         overwrite=overwrite,
         example_ids=example_ids,
+        view_index=view_index
     )
     if filled:
         _create_filled_voxel_data(**kwargs)

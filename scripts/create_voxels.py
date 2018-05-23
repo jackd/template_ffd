@@ -1,3 +1,6 @@
+#!/usr/bin/python
+
+
 def create_voxels(
         model_id, edge_length_threshold, filled, overwrite, cat_desc):
     if model_id is None:

@@ -1,3 +1,4 @@
+#!/usr/bin/python
 """Script for checking if a given model has predictions for all example_ids."""
 
 

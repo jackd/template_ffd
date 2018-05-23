@@ -10,6 +10,7 @@ from template_ffd.data.voxels import get_gt_voxel_dataset
 from shapenet.core import cat_desc_to_id
 from path import get_eval_path
 from template_ffd.model import get_builder
+from retrofit import retrofit_eval_fn
 
 
 def intersection_over_union(v0, v1):
@@ -59,11 +60,12 @@ class IouTemplateSavingManager(JsonAutoSavingManager):
 
 class IouAutoSavingManager(JsonAutoSavingManager):
     def __init__(
-            self, model_id, edge_length_threshold=0.1, filled=False,
-            voxel_config=None):
+            self, model_id, edge_length_threshold=0.1, view_index=None,
+            filled=False, voxel_config=None):
         self._model_id = model_id
         self._edge_length_threshold = edge_length_threshold
         self._filled = filled
+        self._view_index = view_index
         self._voxel_config = VoxelConfig() if voxel_config is None else \
             voxel_config
 
@@ -72,39 +74,55 @@ class IouAutoSavingManager(JsonAutoSavingManager):
         return ('Creating IoU data\n'
                 'model_id: %s\n'
                 'edge_length_threshold: %.3f\n'
+                'view_index: %s\n'
                 'filled: %s\n'
                 'voxel_config: %s' % (
-                    self._model_id, self._edge_length_threshold, self._filled,
+                    self._model_id, self._edge_length_threshold,
+                    str(self._view_index), self._filled,
                     self._voxel_config.voxel_id))
 
     @property
     def path(self):
         fs = 'filled' if self._filled else 'unfilled'
-        return get_eval_path(
-            'iou', str(self._edge_length_threshold),
-            self._voxel_config.voxel_id, fs, '%s.json' % self._model_id)
+        args = ['iou', str(self._edge_length_threshold),
+                self._voxel_config.voxel_id, fs]
+        view_index = self._view_index
+        if view_index is None:
+            args.append('%s.json' % self._model_id)
+        else:
+            args.extend((self._model_id, 'v%d.json' % view_index))
+        return get_eval_path(*args)
 
     def get_lazy_dataset(self):
         cat_id = cat_desc_to_id(load_params(self._model_id)['cat_desc'])
         example_ids = get_example_ids(cat_id, 'eval')
         inferred_dataset = get_voxel_dataset(
             self._model_id, self._edge_length_threshold, self._voxel_config,
-            filled=self._filled, example_ids=example_ids)
+            filled=self._filled, example_ids=example_ids,
+            view_index=self._view_index)
 
         gt_dataset = get_gt_voxel_dataset(cat_id, filled=self._filled)
 
         voxel_datasets = Dataset.zip(inferred_dataset, gt_dataset)
+        # for ds, ds_id in (
+        #         (inferred_dataset, 'inferred'), (gt_dataset, 'gt')):
+        #     for example_id in example_ids:
+        #         if example_id not in inferred_dataset:
+        #             raise KeyError('example_id %s not in %s dataset'
+        #                            % (example_id, ds_id))
         voxel_datasets = voxel_datasets.subset(example_ids)
 
         def map_fn(v):
-            return intersection_over_union(v[0].data, v[1].data)
+            return intersection_over_union(
+                v[0].dense_data(), v[1].dense_data())
 
         iou_dataset = voxel_datasets.map(map_fn)
         return iou_dataset
 
 
 def get_iou_dataset(
-        model_id, edge_length_threshold=0.1, filled=False, recalc=False):
+        model_id, edge_length_threshold=0.1, view_index=None, filled=False,
+        recalc=False):
     from shapenet.core import cat_desc_to_id
     from template_ffd.data.ids import get_example_ids
     from template_ffd.model import load_params
@@ -114,6 +132,7 @@ def get_iou_dataset(
     manager = IouAutoSavingManager(
         model_id=model_id,
         edge_length_threshold=edge_length_threshold,
+        view_index=view_index,
         filled=filled
     )
     if not recalc:
@@ -124,8 +143,12 @@ def get_iou_dataset(
     return manager.get_saving_dataset('r')
 
 
-def report_iou_average(model_id, edge_length_threshold=0.1, filled=False):
+def _get_iou_average(
+        model_id, edge_length_threshold=0.1, filled=False, view_index=None):
     with get_iou_dataset(model_id, edge_length_threshold=edge_length_threshold,
-                         filled=filled) as ds:
+                         filled=filled, view_index=view_index) as ds:
         values = list(ds.values())
-    print(np.mean(values))
+    return np.mean(values)
+
+
+get_iou_average = retrofit_eval_fn(_get_iou_average)

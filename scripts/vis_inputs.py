@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 
 def main(model_id, mode):
     from template_ffd.model import get_builder

@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 
 def main(model_id, skip_runs=10):
     import os

@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 
 def train(model_id, max_steps):
     import tensorflow as tf

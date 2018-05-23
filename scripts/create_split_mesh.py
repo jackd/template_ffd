@@ -1,3 +1,4 @@
+#!/usr/bin/python
 
 
 def create_split_mesh(

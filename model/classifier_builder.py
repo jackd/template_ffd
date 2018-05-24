@@ -164,16 +164,21 @@ class ClassifierBuilder(ModelBuilder):
         image = feature_data['image']
         image -= np.min(image)
         image /= np.max(image)
-        plt.show(image)
+        probs = prediction_data['probs']
+        pred = prediction_data['predictions']
+        plt.imshow(image)
         cat_descs = self.cat_descs
+        for cat_desc, prob in zip(cat_descs, probs):
+            print('%.3f: %s' % (prob, cat_desc))
         plt.title('%s, inferred %s'
-                  % (cat_descs[prediction_data['predictions']],
-                     cat_descs[label_data]))
+                  % (cat_descs[label_data], cat_descs[pred]))
         plt.show()
 
     def get_predictions(self, inferences):
         preds = inferences.copy()
-        preds['predictions'] = tf.argmax(inferences['logits'], axis=-1)
+        logits = inferences['logits']
+        preds['predictions'] = tf.argmax(logits, axis=-1)
+        preds['probs'] = tf.nn.softmax(logits)
         return preds
 
     def get_eval_metric_ops(self, predictions, labels):
@@ -183,7 +188,7 @@ class ClassifierBuilder(ModelBuilder):
 
     @property
     def batch_size(self):
-        return 64
+        return 2
 
     def get_inputs(self, mode):
         from shapenet.core.blender_renderings.config import RenderConfig

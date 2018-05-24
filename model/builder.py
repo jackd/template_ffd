@@ -52,6 +52,14 @@ def nested_generator(nested_vals):
             % str(type(nested_vals)))
 
 
+def initialize_uninitialized_variables(sess):
+    global_vars = tf.global_variables()
+    is_init = sess.run(
+        [tf.is_variable_initialized(var) for var in global_vars])
+    init_vars = [v for (v, i) in zip(global_vars, is_init) if not i]
+    sess.run(tf.variables_initializer(init_vars))
+
+
 class ModelBuilder(object):
     """
     Abstract base class for building models.
@@ -65,9 +73,7 @@ class ModelBuilder(object):
             * get_inference_loss
             * get_train_op
         * data pipelines:
-            * get_train_dataset
-            * get_eval_dataset
-            * get_predict_dataset
+            * get_inputs
 
     Implementations are encouraged to implement:
         * get_predictions
@@ -79,6 +85,35 @@ class ModelBuilder(object):
     def __init__(self, model_id, params):
         self._model_id = model_id
         self._params = params
+        self._initializer_run = False
+
+    @property
+    def initializer_run(self):
+        """Flag indicating an initial run prior to main training."""
+        return self._initializer_run
+
+    def initialize_variables(self):
+        model_dir = self.model_dir
+        if not os.path.isdir(model_dir):
+            os.makedirs(model_dir)
+        elif len(os.listdir(model_dir)) > 0:
+            print('Initialization already complete. Skipping.')
+            return
+        self._initializer_run = True
+        try:
+            with tf.Graph().as_default():
+                with tf.Session() as sess:
+                    features, labels = self.get_train_inputs()
+                    self.get_estimator_spec(features, labels, 'train')
+                    initialize_uninitialized_variables(sess)
+                    saver = tf.train.Saver()
+                    save_path = os.path.join(self.model_dir, 'model')
+                    saver.save(sess, save_path, global_step=0)
+
+        except Exception:
+            self._initializer_run = False
+            raise
+        self._initializer_run = False
 
     @property
     def model_id(self):
@@ -221,14 +256,7 @@ class ModelBuilder(object):
         return self.get_inputs(mode=tf.estimator.ModeKeys.PREDICT)
 
     def get_inputs(self, mode):
-        """
-        Convenience function for calling inputs with different modes.
-
-        Redirects calls to one of
-            * `get_train_inputs`
-            * `get_eval_inputs`
-            * `get_predict_inputs`.
-        """
+        """Get (features, labels) for use in training/evaluation/prediction."""
         raise NotImplementedError()
 
     def get_estimator(self, config=None):

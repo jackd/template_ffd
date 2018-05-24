@@ -43,7 +43,7 @@ def batch_norm_then(activation, **bn_kwargs):
     return f
 
 
-def _get_mobilenet_features(image, mode, load_weights=False, alpha=1):
+def get_mobilenet_features(image, mode, load_weights=False, alpha=1):
     from mobilenet import MobileNet
     training = mode == tf.estimator.ModeKeys.TRAIN
     tf.keras.backend.set_learning_phase(training)
@@ -56,14 +56,6 @@ def _get_mobilenet_features(image, mode, load_weights=False, alpha=1):
         weights=weights,
         alpha=alpha)
     return model.output
-
-
-def initialize_uninitialized_variables(sess):
-    global_vars = tf.global_variables()
-    is_init = sess.run(
-        [tf.is_variable_initialized(var) for var in global_vars])
-    init_vars = [v for (v, i) in zip(global_vars, is_init) if not i]
-    sess.run(tf.variables_initializer(init_vars))
 
 
 def linear_annealing_factor(cutoff):
@@ -170,29 +162,6 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         super(TemplateFfdBuilder, self).__init__(*args, **kwargs)
         self._initializer_run = False
 
-    def initialize_variables(self):
-        model_dir = self.model_dir
-        if not os.path.isdir(model_dir):
-            os.makedirs(model_dir)
-        elif len(os.listdir(model_dir)) > 0:
-            print('Initialization already complete. Skipping.')
-            return
-        self._initializer_run = True
-        try:
-            with tf.Graph().as_default():
-                with tf.Session() as sess:
-                    features, labels = self.get_train_inputs()
-                    self.get_estimator_spec(features, labels, 'train')
-                    initialize_uninitialized_variables(sess)
-                    saver = tf.train.Saver()
-                    save_path = os.path.join(self.model_dir, 'model')
-                    saver.save(sess, save_path, global_step=0)
-
-        except Exception:
-            self._initializer_run = False
-            raise
-        self._initializer_run = False
-
     @property
     def n_ffd_samples(self):
         return self.params.get('n_ffd_samples', 16384)
@@ -235,7 +204,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
     def get_image_features(self, image, mode, **inference_params):
         alpha = inference_params.get('alpha', 1)
         load_weights = self._initializer_run
-        features = _get_mobilenet_features(image, mode, load_weights, alpha)
+        features = get_mobilenet_features(image, mode, load_weights, alpha)
         conv_filters = inference_params.get('final_conv_filters', [64])
         activation = batch_norm_then(
             tf.nn.relu6, training=mode == tf.estimator.ModeKeys.TRAIN)

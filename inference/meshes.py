@@ -46,6 +46,10 @@ class InferredMeshManager(Hdf5AutoSavingManager):
 
 
 def get_inferred_mesh_dataset(
-        model_id, edge_length_threshold=0.1, view_index=None):
-    return InferredMeshManager(
-        model_id, edge_length_threshold, view_index).get_saved_dataset()
+        model_id, edge_length_threshold=0.1, view_index=None, lazy=True):
+    manager = InferredMeshManager(
+        model_id, edge_length_threshold, view_index)
+    if lazy:
+        return manager.get_lazy_dataset()
+    else:
+        return manager.get_saved_dataset()

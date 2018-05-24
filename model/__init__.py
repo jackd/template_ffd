@@ -21,6 +21,11 @@ def load_params(model_id):
 
 
 def get_builder(model_id):
-    from template_ffd_builder import TemplateFfdBuilder
     params = load_params(model_id)
-    return TemplateFfdBuilder(model_id, params)
+    family = params.get('family', 'template_ffd')
+    if family == 'template_ffd':
+        from template_ffd_builder import TemplateFfdBuilder
+        return TemplateFfdBuilder(model_id, params)
+    elif family == 'classifier':
+        from classifier_builder import ClassifierBuilder
+        return ClassifierBuilder(model_id, params)

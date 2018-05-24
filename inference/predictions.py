@@ -56,9 +56,13 @@ def create_predictions_data(model_id, view_index=None, overwrite=False):
     if view_index is None:
         _create_predictions_data(model_id, view_index, overwrite)
     else:
-        assert(isinstance(view_index, (list, tuple)))
-        for vi in view_index:
-            _create_predictions_data(model_id, vi, overwrite)
+        if isinstance(view_index, int):
+            _create_predictions_data(model_id, view_index, overwrite)
+        elif hasattr(view_index, '__iter__'):
+            for vi in view_index:
+                _create_predictions_data(model_id, vi, overwrite)
+        else:
+            raise TypeError('Invalivd view_index %s' % view_index)
 
 
 def _get_predictions_dataset(model_id, view_index, mode):

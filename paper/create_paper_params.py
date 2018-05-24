@@ -60,6 +60,9 @@ for cat in cats:
 
     ps['view_index'] = range(8)
     write_params(model_id, ps)
+    del ps['inference_params']
+    model_id = '%s_full' % model_id
+    write_params(model_id, ps)
 
 
 # # TODO: change template ids

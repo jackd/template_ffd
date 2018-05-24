@@ -17,4 +17,4 @@ if __name__ == '__main__':
     parser.add_argument(
         'model_id', help='id of model defined in params')
     args = parser.parse_args()
-    eval_model(args.model_id, max_steps=args.max_steps)
+    eval_model(args.model_id)

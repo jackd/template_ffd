@@ -211,6 +211,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         for n in conv_filters:
             features = tf.layers.conv2d(
                 features, n, 1, activation=activation)
+            # EEEEEK
             features = tf.layers.batch_normalization(features)
         return features
 

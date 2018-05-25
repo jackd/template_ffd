@@ -7,6 +7,7 @@ import tensorflow as tf
 from shapenet.core import cat_desc_to_id, cat_id_to_desc
 from .builder import ModelBuilder
 from .template_ffd_builder import get_mobilenet_features
+from .template_ffd_builder import batch_norm_then
 
 _cat_descs5 = (
     'plane',
@@ -120,10 +121,20 @@ class ClassifierBuilder(ModelBuilder):
         alpha = self.params.get('alpha', 0.25)
         load_weights = self._initializer_run
         image = features['image']
+        # mode = tf.estimator.ModeKeys.TRAIN
         mobilenet_features = get_mobilenet_features(
             image, mode, load_weights, alpha)
-        pooled_features = tf.reduce_mean(mobilenet_features, axis=(1, 2))
-        logits = tf.layers.dense(pooled_features, self.n_classes)
+        final_filters = self.params.get('final_conv_filters')
+        if final_filters is None:
+            final_features = tf.reduce_mean(mobilenet_features, axis=(1, 2))
+        else:
+            activation = batch_norm_then(
+                tf.nn.relu6, training=mode == tf.estimator.ModeKeys.TRAIN)
+            final_features = tf.layers.conv2d(
+                mobilenet_features, final_filters, 1, 1, activation=activation)
+            final_features = tf.layers.flatten(final_features)
+
+        logits = tf.layers.dense(final_features, self.n_classes)
         return dict(
             logits=logits,
             cat_index=features['cat_index'],

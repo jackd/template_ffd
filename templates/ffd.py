@@ -64,7 +64,7 @@ def create_ffd_data(
         overwrite=overwrite)
 
 
-def get_ffd_dataset(cat_id, n=3, edge_length_threshold=None, n_samples=None):
+def _get_ffd_dataset(cat_id, n=3, edge_length_threshold=None, n_samples=None):
     manager = FfdManager(
         cat_id=cat_id,
         n=n,
@@ -74,3 +74,13 @@ def get_ffd_dataset(cat_id, n=3, edge_length_threshold=None, n_samples=None):
         return manager.get_saved_dataset()
     else:
         return manager.get_saving_dataset()
+
+
+def get_ffd_dataset(cat_ids, n=3, edge_length_threshold=None, n_samples=None):
+    from dids.core import BiKeyDataset
+    kwargs = dict(
+        n=n, dge_length_threshold=edge_length_threshold, n_samples=n_samples)
+    if isinstance(cat_ids, str):
+        cat_ids = [cat_ids]
+    datasets = {c: _get_ffd_dataset(c, **kwargs) for c in cat_ids}
+    return BiKeyDataset(datasets)

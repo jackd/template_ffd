@@ -32,51 +32,20 @@ _cat_descs13 = _cat_descs5 + _cat_descs8
 _cat_ids13 = tuple(cat_desc_to_id(c) for c in _cat_descs13)
 
 
-def get_dids_dataset(render_config, view_index, cat_ids, example_ids):
-    from dids.core import BiKeyDataset
-    if not isinstance(view_index, (list, tuple)):
-        raise NotImplementedError()
-    datasets = {
-        i: render_config.get_multi_view_dataset(c, eids)
-        for i, (c, eids) in enumerate(zip(cat_ids, example_ids))}
-    dataset = BiKeyDataset(datasets)
-    return dataset
-
-
 def get_tf_dataset(
         render_config, view_index, cat_ids, example_ids, num_parallel_calls=8,
         shuffle=False, repeat=False, batch_size=None):
-    from shapenet.image import with_background
-    dids_ds = get_dids_dataset(render_config, view_index, cat_ids, example_ids)
+    from .data import get_image_dataset
+    dids_ds = get_image_dataset(
+        cat_ids, example_ids, view_index, render_config)
     dids_ds.open()
 
-    cat_indices = []
-    example_ids = []
-    view_indices = []
-    for cat_index, (example_id, view_index) in dids_ds.keys():
-        cat_indices.append(cat_index)
-        example_ids.append(example_id)
-        view_indices.append(view_index)
+    cat_indices, example_ids, view_indices = zip(*dids_ds.keys())
 
     n_examples = len(view_indices)
     cat_indices = tf.convert_to_tensor(cat_indices, tf.int32)
     example_ids = tf.convert_to_tensor(example_ids, tf.string)
     view_indices = tf.convert_to_tensor(view_indices, tf.int32)
-
-    # cat_indices, example_ids = zip(*dids_ds.keys())
-    #
-    # n_views = len(view_index)
-    # n_ids = len(cat_indices)
-    # n_examples = n_views * n_ids
-    # cat_indices = tf.convert_to_tensor(cat_indices, dtype=tf.int32)
-    # example_ids = tf.convert_to_tensor(example_ids, dtype=tf.string)
-    #
-    # cat_indices = tf.tile(cat_indices, (n_views,))
-    # example_ids = tf.tile(example_ids, (n_views,))
-    # view_indices = tf.range(n_ids, dtype=tf.int32)
-    # view_indices = tf.tile(
-    #     tf.expand_dims(view_indices, axis=-1), (1, n_ids))
-    # view_indices = tf.reshape(view_indices, (-1,))
 
     dataset = tf.data.Dataset.from_tensor_slices(
         (cat_indices, example_ids, view_indices))
@@ -87,8 +56,7 @@ def get_tf_dataset(
         dataset = dataset.shuffle(n_examples)
 
     def map_fn_np(cat_index, example_id, view_index):
-        return with_background(
-            np.array(dids_ds[cat_index, (example_id, view_index)]), 255)
+        return dids_ds[cat_index, example_id, view_index]
 
     def map_fn_tf(cat_index, example_id, view_index):
         image = tf.py_func(

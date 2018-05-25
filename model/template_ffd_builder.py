@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import tensorflow as tf
 import builder
@@ -83,65 +82,49 @@ def annealed_weight(
                 '`exp_annealing_rate` must be `None`')
 
 
-def get_image_dataset(render_config, cat_id, view_index):
-    from shapenet.image import with_background
-    import random
-    if isinstance(view_index, int):
-        dataset = render_config.get_dataset(cat_id, view_index)
-    elif isinstance(view_index, (list, tuple)):
-        dataset = render_config.get_multi_view_dataset(cat_id)
-
-        def key_fn(example_id):
-            return example_id, random.sample(view_index, 1)[0]
-
-        dataset = dataset.map_keys(key_fn)
-    else:
-        raise TypeError('view_index must be an int or list/tuple of ints')
-    return dataset.map(lambda x: with_background(x, 255))
-
-
-def get_cloud_dataset(cat_id, n_samples, n_resamples):
-    from shapenet.core.point_clouds import PointCloudAutoSavingManager
-    from util3d.point_cloud import sample_points
-    manager = PointCloudAutoSavingManager(cat_id, n_samples)
-    if not os.path.isfile(manager.path):
-        manager.save_all()
-    dataset = manager.get_saving_dataset(mode='r')
-    # get_saved_dataset seems to give issues because we don't close properly
-    # dataset = manager.get_saved_dataset()
-    return dataset.map(
-        lambda x: sample_points(np.array(x, dtype=np.float32), n_resamples))
-
-
 def get_dataset(
         render_config, view_index, n_samples, n_resamples, cat_id,
         example_ids, num_parallel_calls=8, shuffle=False, repeat=False,
         batch_size=None):
+    from .data import get_image_dataset, get_cloud_dataset
 
-    image_ds = get_image_dataset(render_config, cat_id, view_index)
+    # image_ds = get_image_dataset(render_config, cat_id, view_index)
+    image_ds = get_image_dataset(
+        cat_id, example_ids, view_index, render_config)
+    cloud_ds = get_cloud_dataset(cat_id, example_ids, n_samples, n_resamples)
     image_ds.open()
-    if not all(k in image_ds for k in example_ids):
-        raise KeyError('Not all images present')
-    cloud_ds = get_cloud_dataset(cat_id, n_samples, n_resamples)
     cloud_ds.open()
-    if not all(k in cloud_ds for k in example_ids):
-        raise KeyError('Not all cloud data present')
 
-    def map_np(example_id):
-        return image_ds[example_id], cloud_ds[example_id]
+    def map_np(cat_id, example_id, view_index):
+        image = image_ds[cat_id, example_id, view_index]
+        cloud = cloud_ds[cat_id, example_id]
+        return image, cloud
 
-    def map_tf(example_id):
+    def map_tf(cat_index, example_id, view_index):
         image, cloud = tf.py_func(
-            map_np, [example_id], (tf.uint8, tf.float32), stateful=False)
+            map_np, [cat_index, example_id, view_index],
+            (tf.uint8, tf.float32), stateful=False)
         image.set_shape(tuple(render_config.shape) + (3,))
         cloud.set_shape((n_resamples, 3))
         image = tf.image.per_image_standardization(image)
-        return example_id, image, cloud
+        features = dict(
+            image=image,
+            cat_index=cat_index,
+            example_id=example_id,
+            view_index=view_index)
+
+        return features, cloud
+
+    cat_indices, example_ids, view_indices = zip(*image_ds.keys())
+    n_examples = len(cat_indices)
+    cat_indices = tf.convert_to_tensor(cat_indices, tf.int32)
+    example_ids = tf.convert_to_tensor(example_ids, tf.string)
+    view_indices = tf.convert_to_tensor(view_indices, tf.int32)
 
     dataset = tf.data.Dataset.from_tensor_slices(
-        tf.convert_to_tensor(example_ids, tf.string))
+        (cat_indices, example_ids, view_indices))
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=len(example_ids))
+        dataset = dataset.shuffle(buffer_size=n_examples)
     if repeat:
         dataset = dataset.repeat()
 
@@ -171,10 +154,10 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         return self.params.get('view_index', 5)
 
     def _get_ffd_data(self, ffd_dataset):
-        for example_id in self.template_ids:
-            ffd_data = ffd_dataset[example_id]
+        for cat_id, example_id in self.template_ids:
+            ffd_data = ffd_dataset[cat_id, example_id]
             b, p = (np.array(ffd_data[k]) for k in ('b', 'p'))
-            yield example_id, b, p
+            yield cat_id, example_id, b, p
 
     def get_ffd_data(self, ffd_dataset=None):
         if ffd_dataset is None:
@@ -190,7 +173,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         n_ffd_resamples = self.params.get('n_ffd_resamples', 1024)
         bs = []
         ps = []
-        for example_id, b, p in self.get_ffd_data(ffd_dataset):
+        for cat_id, example_id, b, p in self.get_ffd_data(ffd_dataset):
             b = tf.constant(b, dtype=tf.float32)
             b = sample_tf(
                 b, n_ffd_resamples, axis=0, name='b_resampled_%s' % example_id)
@@ -257,10 +240,14 @@ class TemplateFfdBuilder(builder.ModelBuilder):
 
     @property
     def template_ids(self):
-        template_ids = get_template_ids(self.cat_id)
-        idxs = self.params.get('template_idxs')
-        if idxs:
-            template_ids = tuple(template_ids[i] for i in idxs)
+        cat_id = self.cat_id
+        if isinstance(cat_id, str):
+            template_ids = get_template_ids(self.cat_id)
+            idxs = self.params.get('template_idxs')
+            if idxs:
+                template_ids = tuple(template_ids[i] for i in idxs)
+        else:
+            raise NotImplementedError()
         return template_ids
 
     def get_inferred_point_clouds(self, dp):
@@ -371,12 +358,11 @@ class TemplateFfdBuilder(builder.ModelBuilder):
 
     def get_inputs(self, mode):
         dataset = self.get_dataset(mode)
-        # return dataset.make_one_shot_iterator().get_next()
-        example_id, image, cloud = dataset.make_one_shot_iterator().get_next()
-        return dict(example_id=example_id, image=image), cloud
+        return dataset.make_one_shot_iterator().get_next()
 
     def vis_example_data(self, feature_data, label_data):
         import matplotlib.pyplot as plt
+        from shapenet.core import cat_id_to_desc
         from util3d.mayavi_vis import vis_point_cloud
         from mayavi import mlab
         image = feature_data['image']
@@ -384,16 +370,24 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         image -= np.min(image)
         image /= np.max(image)
         plt.imshow(image)
+        cat_ids = self.cat_id
+        cat_index = feature_data['cat_index']
+        if isinstance(cat_ids, str):
+            assert(cat_index == 0)
+            cat_id = cat_ids
+        else:
+            cat_id = cat_ids[cat_index]
+        plt.title('%s: %s' %
+                  (cat_id_to_desc(cat_id), feature_data['example_id']))
         plt.show(block=False)
-        vis_point_cloud(point_cloud, color=(0, 0, 1), scale_factor=0.01)
+        vis_point_cloud(
+            point_cloud, color=(0, 0, 1), scale_factor=0.01, axis_order='xzy')
         mlab.show()
         plt.close()
 
     def get_prediction_to_mesh_fn(self, edge_length_threshold=None):
         cat_id = self.cat_id
-        with get_ffd_dataset(cat_id, self.n, edge_length_threshold) \
-                as ffd_dataset:
-            example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
+        cat_ids, example_ids, bs, ps = zip(*self.get_ffd_data())
         with get_template_mesh_dataset(cat_id, edge_length_threshold) as \
                 mesh_dataset:
             all_faces = []
@@ -421,7 +415,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         cat_id = self.cat_id
         with get_ffd_dataset(cat_id, self.n, edge_length_threshold) \
                 as ffd_dataset:
-            example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
+            cat_ids, example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
         with get_template_mesh_dataset(cat_id, edge_length_threshold) as \
                 mesh_dataset:
             all_faces = []
@@ -449,7 +443,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         with get_ffd_dataset(
                 self.cat_id, self.n, n_samples=self.n_ffd_samples) \
                 as ffd_dataset:
-            example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
+            cat_ids, example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
 
         def transform_predictions(probs, dp):
             i = np.argmax(probs)
@@ -527,7 +521,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         ffd_dataset = get_ffd_dataset(
             cat_id, self.n, edge_length_threshold=edge_length_threshold)
         with ffd_dataset:
-            example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
+            cat_ids, example_ids, bs, ps = zip(*self.get_ffd_data(ffd_dataset))
 
         template_mesh_ds = get_template_mesh_dataset(
                 cat_id, edge_length_threshold=edge_length_threshold)

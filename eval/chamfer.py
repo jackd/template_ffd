@@ -61,7 +61,7 @@ class _ChamferAutoSavingManager(JsonAutoSavingManager):
     def __init__(self, model_id, n_samples=1024, **kwargs):
         self._model_id = model_id
         self._n_samples = n_samples
-        self._nested = True
+        self._nested_depth = 3
         self._kwargs = kwargs
 
     @property
@@ -119,22 +119,17 @@ def get_chamfer_manager(model_id, pre_sampled=True, **kwargs):
 
 def get_chamfer_average(model_id, pre_sampled=True, cat_desc=None, **kwargs):
     import os
-    from shapenet.core import cat_desc_to_id
-    from template_ffd.data.ids import get_example_ids
     from template_ffd.model import load_params
     manager = get_chamfer_manager(model_id, pre_sampled, **kwargs)
     if cat_desc is None:
-        load_params(model_id)['cat_desc']
-    elif not isinstance(cat_desc, (list, tuple)):
+        cat_desc = load_params(model_id)['cat_desc']
+    if not isinstance(cat_desc, (list, tuple)):
         cat_desc = [cat_desc]
-    cat_id = cat_desc_to_id(cat_desc)
 
-    n_eval = sum(len(get_example_ids(c, 'eval')) for c in cat_id)
     values = None
     if os.path.isfile(manager.path):
         with manager.get_saving_dataset('r') as ds:
-            if len(ds) == n_eval:
-                values = np.array(tuple(ds.values()))
+            values = np.array(tuple(ds.values()))
     if values is None:
         manager.save_all()
         with manager.get_saving_dataset('r') as ds:

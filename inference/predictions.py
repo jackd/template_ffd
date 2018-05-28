@@ -23,7 +23,7 @@ def get_predictions_data(model_id, mode='infer'):
     return LengthedGenerator(predictions, n)
 
 
-def create_predictions_data(model_id, overwrite):
+def create_predictions_data(model_id, overwrite=False):
     def map_fn(prediction):
         cat_id, example_id, view_index, probs, dp = (
             prediction[k] for k in (

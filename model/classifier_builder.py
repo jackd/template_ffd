@@ -167,7 +167,7 @@ class ClassifierBuilder(ModelBuilder):
 
     @property
     def batch_size(self):
-        return 64 
+        return 64
 
     def get_inputs(self, mode):
         from shapenet.core.blender_renderings.config import RenderConfig

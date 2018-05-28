@@ -6,17 +6,19 @@ _voxels_dir = os.path.join(
     os.path.realpath(os.path.dirname(__file__)), '_filled_voxels')
 
 
-def create_filled_data(unfilled_dataset, dst, overwrite=False, message=None):
-    from util3d.voxel.binvox import DenseVoxels
+def fill_voxels(voxels):
+    import nuympy as np
     from util3d.voxel.manip import filled_voxels
-
-    def map_fn(voxels):
+    from util3d.voxel.binvox import DenseVoxels
+    if isinstance(voxels, np.ndarray):
+        return filled_voxels(voxels)
+    else:
         return DenseVoxels(
-            filled_voxels(voxels.dense_data()),
-            voxels.translate,
-            voxels.scale)
+            filled_voxels(voxels.dense_data()), voxels.translate, voxels.scale)
 
-    src = unfilled_dataset.map(map_fn)
+
+def create_filled_data(unfilled_dataset, dst, overwrite=False, message=None):
+    src = unfilled_dataset.map(fill_voxels)
     with src:
         dst.save_dataset(src, overwrite=overwrite, message=message)
 

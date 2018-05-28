@@ -79,7 +79,7 @@ def _get_ffd_dataset(cat_id, n=3, edge_length_threshold=None, n_samples=None):
 def get_ffd_dataset(cat_ids, n=3, edge_length_threshold=None, n_samples=None):
     from dids.core import BiKeyDataset
     kwargs = dict(
-        n=n, dge_length_threshold=edge_length_threshold, n_samples=n_samples)
+        n=n, edge_length_threshold=edge_length_threshold, n_samples=n_samples)
     if isinstance(cat_ids, str):
         cat_ids = [cat_ids]
     datasets = {c: _get_ffd_dataset(c, **kwargs) for c in cat_ids}

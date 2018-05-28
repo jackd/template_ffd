@@ -131,6 +131,11 @@ class ModelBuilder(object):
     def batch_size(self):
         return self.params['batch_size']
 
+    @property
+    def default_max_steps(self):
+        """Default maximum number of training steps."""
+        return self.params.get('default_max_steps', 100000)
+
     def get_inference(self, features, mode):
         """Get inferred value of the model."""
         raise NotImplementedError('Abstract method')
@@ -255,7 +260,7 @@ class ModelBuilder(object):
         """
         return self.get_inputs(mode=tf.estimator.ModeKeys.PREDICT)
 
-    def get_inputs(self, mode):
+    def get_inputs(self, mode, repeat=None):
         """Get (features, labels) for use in training/evaluation/prediction."""
         raise NotImplementedError()
 

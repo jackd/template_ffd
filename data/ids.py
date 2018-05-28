@@ -20,7 +20,7 @@ class SplitConfig(object):
     def get_txt_path(self, cat_id, mode):
         return os.path.join(self._root_dir, '%s_%s.txt' % (cat_id, mode))
 
-    def get_example_ids(self, cat_id, mode):
+    def _get_example_ids(self, cat_id, mode):
         if not self.has_split(cat_id):
             self.create_split(cat_id, overwrite=True)
         if mode in ('predict', 'infer'):
@@ -28,6 +28,12 @@ class SplitConfig(object):
         with open(self.get_txt_path(cat_id, mode)) as fp:
             example_ids = [i.rstrip() for i in fp.readlines()]
         return example_ids
+
+    def get_example_ids(self, cat_id, mode):
+        if isinstance(cat_id, (list, tuple)):
+            return tuple(self._get_example_ids(c, mode) for c in cat_id)
+        else:
+            return self._get_example_ids(cat_id, mode)
 
     def has_split(self, cat_id):
         return all(os.path.isfile(self.get_txt_path(cat_id, m))

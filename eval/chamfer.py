@@ -7,7 +7,6 @@ import template_ffd.inference.clouds as clouds
 from template_ffd.model import get_builder
 from path import get_eval_path
 from point_cloud import get_lazy_evaluation_dataset
-from retrofit import retrofit_eval_fn
 
 
 def _get_lazy_chamfer_dataset(inf_cloud_dataset, cat_id, n_samples):
@@ -17,28 +16,22 @@ def _get_lazy_chamfer_dataset(inf_cloud_dataset, cat_id, n_samples):
 
 
 class _TemplateChamferAutoSavingManager(JsonAutoSavingManager):
-    def __init__(self, model_id, n_samples=1024, view_index=None):
+    def __init__(self, model_id, n_samples=1024):
         self._model_id = model_id
         self._n_samples = n_samples
-        self._view_index = None
 
     @property
     def path(self):
-        args = [
-            'chamfer',
-            'template',
-            str(self._n_samples)]
-        if self._view_index is None:
-            args.append('%s.json' % self._model_id)
-        else:
-            args.extend((self._model_id, 'v%d.json' % self._view_index))
-        return get_eval_path(*args)
+        return get_eval_path(
+            'chamfer', 'template',
+            str(self._n_samples),
+            '%s.json' % self._model_id)
 
     @property
     def saving_message(self):
         return ('Creating chosen template Chamfer data\n'
-                'model_id: %s\nn_samples: %d\nview_index: %s' %
-                (self._model_id, self._n_samples, str(self._view_index)))
+                'model_id: %s\nn_samples: %d' %
+                (self._model_id, self._n_samples))
 
     def get_lazy_dataset(self):
         from shapenet.core.point_clouds import get_point_cloud_dataset
@@ -66,10 +59,10 @@ class _TemplateChamferAutoSavingManager(JsonAutoSavingManager):
 
 
 class _ChamferAutoSavingManager(JsonAutoSavingManager):
-    def __init__(self, model_id, n_samples=1024, view_index=None, **kwargs):
+    def __init__(self, model_id, n_samples=1024, **kwargs):
         self._model_id = model_id
         self._n_samples = n_samples
-        self._view_index = view_index
+        self._nested = True
         self._kwargs = kwargs
 
     @property
@@ -78,8 +71,8 @@ class _ChamferAutoSavingManager(JsonAutoSavingManager):
                     ('model_id', self._model_id),
                     ('n_samples', self._n_samples)
                 ) + tuple(self._kwargs.items())
-        return 'Creating Chamfer data\n%s' % string.join(
-            ('%s: %s' % (k, v) for k, v in items), '\n')
+        return 'Creating Chamfer data\n%s' % '\n'.join(
+            '%s: %s' % (k, v) for k, v in items)
 
     def get_inferred_cloud_dataset(self):
         raise NotImplementedError('Abstract method')
@@ -93,32 +86,24 @@ class _ChamferAutoSavingManager(JsonAutoSavingManager):
 class _PreSampledChamferAutoSavingManager(_ChamferAutoSavingManager):
     @property
     def path(self):
-        args = ['chamfer', 'presampled', str(self._n_samples)]
-        if self._view_index is None:
-            args.append('%s.json' % self._model_id)
-        else:
-            args.extend((self._model_id, 'v%d.hdf5' % self._view_index))
-
-        return get_eval_path(*args)
+        return get_eval_path(
+            'chamfer', 'presampled',
+            str(self._n_samples),
+            '%s.json' % self._model_id)
 
     def get_inferred_cloud_dataset(self):
         return clouds.get_inferred_cloud_dataset(
             pre_sampled=True, model_id=self._model_id,
-            n_samples=self._n_samples, view_index=self._view_index,
-            **self._kwargs)
+            n_samples=self._n_samples, **self._kwargs)
 
 
 class _PostSampledChamferAutoSavingManager(_ChamferAutoSavingManager):
     @property
     def path(self):
-        view_index = self._view_index
-        args = ['chamfer', 'postsampled', str(self._n_samples),
-                str(self._kwargs['edge_length_threshold'])]
-        if view_index is None:
-            args.append('%s.json' % self._model_id)
-        else:
-            args.extend((self._model_id, 'v%d.hdf5' % view_index))
-        return get_eval_path(*args)
+        return get_eval_path(
+            'chamfer', 'postsampled', str(self._n_samples),
+            str(self._kwargs['edge_length_threshold']),
+            '%s.json' % self._model_id)
 
     def get_inferred_cloud_dataset(self):
         return clouds.get_inferred_cloud_dataset(
@@ -133,14 +118,19 @@ def get_chamfer_manager(model_id, pre_sampled=True, **kwargs):
         return _PostSampledChamferAutoSavingManager(model_id, **kwargs)
 
 
-def _get_chamfer_average(model_id, pre_sampled=True, **kwargs):
+def get_chamfer_average(model_id, pre_sampled=True, cat_desc=None, **kwargs):
     import os
     from shapenet.core import cat_desc_to_id
     from template_ffd.data.ids import get_example_ids
     from template_ffd.model import load_params
     manager = get_chamfer_manager(model_id, pre_sampled, **kwargs)
-    cat_id = cat_desc_to_id(load_params(model_id)['cat_desc'])
-    n_eval = len(get_example_ids(cat_id, 'eval'))
+    if cat_desc is None:
+        load_params(model_id)['cat_desc']
+    elif not isinstance(cat_desc, (list, tuple)):
+        cat_desc = [cat_desc]
+    cat_id = cat_desc_to_id(cat_desc)
+
+    n_eval = sum(len(get_example_ids(c, 'eval')) for c in cat_id)
     values = None
     if os.path.isfile(manager.path):
         with manager.get_saving_dataset('r') as ds:
@@ -153,8 +143,5 @@ def _get_chamfer_average(model_id, pre_sampled=True, **kwargs):
     return np.mean(values)
 
 
-get_chamfer_average = retrofit_eval_fn(_get_chamfer_average)
-
-
-def get_template_chamfer_manager(model_id, n_samples=1024, view_index=None):
-    return _TemplateChamferAutoSavingManager(model_id, n_samples, view_index)
+def get_template_chamfer_manager(model_id, n_samples=1024):
+    return _TemplateChamferAutoSavingManager(model_id, n_samples)

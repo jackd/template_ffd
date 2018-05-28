@@ -51,5 +51,15 @@ class FfdAnnotations(h.Hdf5AutoSavingManager):
         return zipped.map(map_fn).subset(keys)
 
 
-def get_annotations_ffd_dataset(cat_id, n=3):
+def _get_annotations_ffd_dataset(cat_id, n=3):
     return FfdAnnotations(cat_id, n).get_saved_dataset()
+
+
+def get_annotations_ffd_dataset(cat_id, n=3):
+    if isinstance(cat_id, (list, tuple)):
+        from dids.core import BiKeyDataset
+        datasets = {
+            c: _get_annotations_ffd_dataset(c, n=n) for c in cat_id}
+        return BiKeyDataset(datasets)
+    else:
+        return _get_annotations_ffd_dataset(cat_id, n=n)

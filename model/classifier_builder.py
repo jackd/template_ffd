@@ -167,9 +167,9 @@ class ClassifierBuilder(ModelBuilder):
 
     @property
     def batch_size(self):
-        return 64 
+        return 64
 
-    def get_inputs(self, mode):
+    def get_inputs(self, mode, repeat=None):
         from shapenet.core.blender_renderings.config import RenderConfig
         from ..data.ids import get_example_ids
         render_config = RenderConfig()
@@ -178,8 +178,10 @@ class ClassifierBuilder(ModelBuilder):
         cat_ids = self.cat_ids
         example_ids = tuple(
             get_example_ids(cat_id, mode) for cat_id in cat_ids)
+        if repeat is None:
+            repeat = mode == tf.estimator.ModeKeys.TRAIN
         dataset = get_tf_dataset(
             render_config, view_index, cat_ids, example_ids,
             batch_size=self.batch_size, shuffle=True,
-            repeat=mode == tf.estimator.ModeKeys.TRAIN)
+            repeat=repeat)
         return dataset.make_one_shot_iterator().get_next()

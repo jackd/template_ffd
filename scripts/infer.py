@@ -2,9 +2,9 @@
 
 
 def generate_inferences(
-        model_id, view_index=None, overwrite=False):
+        model_id, overwrite=False):
     from template_ffd.inference.predictions import create_predictions_data
-    create_predictions_data(model_id, view_index, overwrite=overwrite)
+    create_predictions_data(model_id, overwrite=overwrite)
 
 
 if __name__ == '__main__':
@@ -16,5 +16,4 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--overwrite', action='store_true')
     args = parser.parse_args()
     generate_inferences(
-        args.model_id, args.all_views, args.view_index,
-        overwrite=args.overwrite)
+        args.model_id, overwrite=args.overwrite)

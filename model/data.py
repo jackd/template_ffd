@@ -13,14 +13,14 @@ def get_image_dataset(cat_ids, example_ids, view_indices, render_config=None):
     if isinstance(view_indices, int):
         view_indices = [view_indices]
     datasets = {
-        i: render_config.get_multi_view_dataset(
+        c: render_config.get_multi_view_dataset(
             c, view_indices=view_indices, example_ids=eid)
-        for i, (c, eid) in enumerate(zip(cat_ids, example_ids))}
+        for c, eid in zip(cat_ids, example_ids)}
     dataset = BiKeyDataset(datasets).map(
         lambda image: with_background(image, 255))
     dataset = dataset.map_keys(
         lambda key: (key[0], (key[1], key[2])),
-        lambda key: (key[0], key[1][0], key[1][1]))
+        lambda key: (key[0],) + key[1])
     return dataset
 
 
@@ -33,11 +33,11 @@ def get_cloud_dataset(cat_ids, example_ids, n_samples=16384, n_resamples=1024):
         cat_ids = [cat_ids]
         example_ids = [example_ids]
     datasets = {}
-    for i, (cat_id, e_ids) in enumerate(zip(cat_ids, example_ids)):
+    for cat_id, e_ids in zip(cat_ids, example_ids):
         manager = PointCloudAutoSavingManager(cat_id, n_samples)
         if not os.path.isfile(manager.path):
             manager.save_all()
-        datasets[i] = manager.get_saving_dataset(
+        datasets[cat_id] = manager.get_saving_dataset(
             mode='r').subset(e_ids)
     return BiKeyDataset(datasets).map(
         lambda x: sample_points(np.array(x, dtype=np.float32), n_resamples))

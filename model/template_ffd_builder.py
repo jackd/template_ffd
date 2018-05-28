@@ -1,12 +1,20 @@
+import itertools
 import numpy as np
 import tensorflow as tf
-import builder
 from shapenet.core import cat_desc_to_id
+import builder
 from template_ffd.metrics.tf_impl import tf_metrics
-from template_ffd.templates.ids import get_template_ids
 from template_ffd.templates.ffd import get_ffd_dataset
 from template_ffd.data.ids import get_example_ids
 from template_ffd.templates.mesh import get_template_mesh_dataset
+
+
+def _get_cat_template_ids(cat_id, template_idxs):
+    from template_ffd.templates.ids import get_template_ids
+    template_ids = get_template_ids(cat_id)
+    if template_idxs is not None:
+        template_ids = tuple(template_ids[i] for i in template_idxs)
+    return tuple((cat_id, t) for t in template_ids)
 
 
 def get_nn(data, query_points):
@@ -100,29 +108,29 @@ def get_dataset(
         cloud = cloud_ds[cat_id, example_id]
         return image, cloud
 
-    def map_tf(cat_index, example_id, view_index):
+    def map_tf(cat_id, example_id, view_index):
         image, cloud = tf.py_func(
-            map_np, [cat_index, example_id, view_index],
+            map_np, [cat_id, example_id, view_index],
             (tf.uint8, tf.float32), stateful=False)
         image.set_shape(tuple(render_config.shape) + (3,))
         cloud.set_shape((n_resamples, 3))
         image = tf.image.per_image_standardization(image)
         features = dict(
             image=image,
-            cat_index=cat_index,
+            cat_id=cat_id,
             example_id=example_id,
             view_index=view_index)
 
         return features, cloud
 
-    cat_indices, example_ids, view_indices = zip(*image_ds.keys())
-    n_examples = len(cat_indices)
-    cat_indices = tf.convert_to_tensor(cat_indices, tf.int32)
+    cat_ids, example_ids, view_indices = zip(*image_ds.keys())
+    n_examples = len(cat_ids)
+    cat_ids = tf.convert_to_tensor(cat_ids, tf.string)
     example_ids = tf.convert_to_tensor(example_ids, tf.string)
     view_indices = tf.convert_to_tensor(view_indices, tf.int32)
 
     dataset = tf.data.Dataset.from_tensor_slices(
-        (cat_indices, example_ids, view_indices))
+        (cat_ids, example_ids, view_indices))
     if shuffle:
         dataset = dataset.shuffle(buffer_size=n_examples)
     if repeat:
@@ -189,13 +197,23 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         load_weights = self._initializer_run
         features = get_mobilenet_features(image, mode, load_weights, alpha)
         conv_filters = inference_params.get('final_conv_filters', [64])
-        activation = batch_norm_then(
-            tf.nn.relu6, training=mode == tf.estimator.ModeKeys.TRAIN)
-        for n in conv_filters:
-            features = tf.layers.conv2d(
-                features, n, 1, activation=activation)
-            # EEEEEK
-            features = tf.layers.batch_normalization(features)
+
+        use_bn_bug = self.params.get('use_bn_bugged_version', True)
+        if use_bn_bug:
+            # double batch-norm was used in training for old models
+            # this is here for backwards compatibility
+            activation = batch_norm_then(
+                tf.nn.relu6, training=mode == tf.estimator.ModeKeys.TRAIN)
+            for n in conv_filters:
+                features = tf.layers.conv2d(
+                    features, n, 1, activation=activation)
+                # EEEEEK
+                features = tf.layers.batch_normalization(features)
+        else:
+            for n in conv_filters:
+                features = tf.layers.conv2d(features, n, 1)
+                features = tf.nn.relu6(tf.layers.batch_normalization(features))
+
         return features
 
     def get_inference(self, features, mode):
@@ -204,6 +222,8 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         training = mode == tf.estimator.ModeKeys.TRAIN
         image = features['image']
         example_id = features['example_id']
+        cat_id = features['cat_id']
+        view_index = features['view_index']
         features = self.get_image_features(image, mode, **inference_params)
         features = tf.layers.flatten(features)
 
@@ -224,11 +244,20 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         eps = self.params.get('prob_eps', 0.1)
         if eps > 0:
             probs = (1 - eps)*probs + eps / n_templates
-        return dict(example_id=example_id, probs=probs, dp=dp)
+        return dict(
+            cat_id=cat_id,
+            view_index=view_index,
+            example_id=example_id,
+            probs=probs,
+            dp=dp)
 
     @property
     def cat_id(self):
-        return cat_desc_to_id(self.params['cat_desc'])
+        cat_desc = self.params['cat_desc']
+        if isinstance(cat_desc, (list, tuple)):
+            return [cat_desc_to_id(c) for c in cat_desc]
+        else:
+            return cat_desc_to_id(cat_desc)
 
     @property
     def n_templates(self):
@@ -241,14 +270,14 @@ class TemplateFfdBuilder(builder.ModelBuilder):
     @property
     def template_ids(self):
         cat_id = self.cat_id
+        idxs = self.params.get('template_idxs')
         if isinstance(cat_id, str):
-            template_ids = get_template_ids(self.cat_id)
-            idxs = self.params.get('template_idxs')
-            if idxs:
-                template_ids = tuple(template_ids[i] for i in idxs)
+            return _get_cat_template_ids(cat_id, idxs)
         else:
-            raise NotImplementedError()
-        return template_ids
+            if idxs is None:
+                idxs = [None for _ in cat_id]
+            return tuple(itertools.chain(
+                *(_get_cat_template_ids(c, i) for c, i in zip(cat_id, idxs))))
 
     def get_inferred_point_clouds(self, dp):
         b, p = self.get_ffd_tensors()
@@ -340,14 +369,18 @@ class TemplateFfdBuilder(builder.ModelBuilder):
     def n_samples(self):
         return self.params.get('n_samples', 16384)
 
-    def get_dataset(self, mode):
+    def get_dataset(self, mode, repeat=None):
         cat_id = self.cat_id
-        example_ids = get_example_ids(cat_id, mode)
+        if isinstance(cat_id, (list, tuple)):
+            example_ids = [get_example_ids(c, mode) for c in cat_id]
+        else:
+            example_ids = get_example_ids(cat_id, mode)
         render_config = self.render_config
         view_index = self.view_index
         n_samples = self.n_samples
         n_resamples = self.params.get('n_resamples', 1024)
-        repeat = mode == tf.estimator.ModeKeys.TRAIN
+        if repeat is None:
+            repeat = mode == tf.estimator.ModeKeys.TRAIN
         shuffle = repeat
         batch_size = self.batch_size
 
@@ -356,8 +389,8 @@ class TemplateFfdBuilder(builder.ModelBuilder):
             example_ids, shuffle=shuffle, repeat=repeat, batch_size=batch_size)
         return dataset
 
-    def get_inputs(self, mode):
-        dataset = self.get_dataset(mode)
+    def get_inputs(self, mode, repeat=None):
+        dataset = self.get_dataset(mode, repeat=repeat)
         return dataset.make_one_shot_iterator().get_next()
 
     def vis_example_data(self, feature_data, label_data):

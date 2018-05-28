@@ -63,6 +63,11 @@ class _NormalizationParamsAutoSavingManager(JsonAutoSavingManager):
 
 
 def get_normalization_params_dataset(cat_id):
-    dataset = _NormalizationParamsAutoSavingManager(cat_id).get_saved_dataset()
+    from dids.core import BiKeyDataset
+    if not isinstance(cat_id, (list, tuple)):
+        cat_id = [cat_id]
+    datasets = {c: _NormalizationParamsAutoSavingManager(c).get_saved_dataset()
+                for c in cat_id}
+    dataset = BiKeyDataset(datasets)
     return dataset.map(
         lambda x: {k: np.array(v, dtype=np.float32) for k, v in x.items()})

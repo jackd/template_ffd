@@ -21,7 +21,7 @@ def get_voxel_subdir(model_id, edge_length_threshold=0.1, voxel_config=None,
 
 def _get_base_voxel_dataset(
         model_id, edge_length_threshold=0.1, voxel_config=None, filled=False,
-        example_ids=None, auto_save=True):
+        auto_save=True):
     kwargs = dict(
         model_id=model_id,
         edge_length_threshold=edge_length_threshold,
@@ -30,14 +30,17 @@ def _get_base_voxel_dataset(
     )
     subdir = get_voxel_subdir(**kwargs)
     if auto_save:
-        create_voxel_data(example_ids=example_ids, overwrite=False, **kwargs)
+        create_voxel_data(overwrite=False, **kwargs)
 
     return bvd.BinvoxDataset(subdir, mode='r')
 
 
 def _flatten_dataset(dataset):
     def key_map_fn(*args):
-        return os.path.join(*args)
+        folder = os.path.join(*args[:-1])
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+        return os.path.join(folder, args[-1])
 
     def inverse_key_map_fn(subpath):
         return tuple(k for k in subpath.split('/') if len(k) > 0)
@@ -48,10 +51,10 @@ def _flatten_dataset(dataset):
 
 def get_voxel_dataset(
         model_id, edge_length_threshold=0.1, voxel_config=None, filled=False,
-        example_ids=None, auto_save=True):
+        auto_save=True):
     base_dataset = _get_base_voxel_dataset(
         model_id, edge_length_threshold=edge_length_threshold,
-        voxel_config=voxel_config, filled=filled, example_ids=example_ids,
+        voxel_config=voxel_config, filled=filled,
         auto_save=auto_save)
 
     return _flatten_dataset(base_dataset)
@@ -79,14 +82,17 @@ def _create_unfilled_voxel_data(
     with mesh_dataset:
         bar = IncrementalBar(max=len(mesh_dataset))
         for k, mesh in mesh_dataset.items():
-            bar.next()
             vertices, faces = (
                 np.array(mesh[k]) for k in ('vertices', 'faces'))
             binvox_path = voxel_dataset.path(os.path.join(*k))
+            folder = os.path.dirname(binvox_path)
+            if not os.path.isdir(folder):
+                os.makedirs(folder)
             # x, z, y = vertices.T
             # vertices = np.stack([x, y, z], axis=1)
             bio.mesh_to_binvox(
                 vertices, faces, binvox_path, **kwargs)
+            bar.next()
         bar.finish()
 
 
@@ -95,7 +101,6 @@ def _create_filled_voxel_data(**kwargs):
 
     overwrite = kwargs.pop('overwrite', False)
     src = _get_base_voxel_dataset(filled=False, **kwargs)
-    kwargs.pop('example_ids')
     dst = bvd.BinvoxDataset(
         get_voxel_subdir(filled=True, **kwargs), mode='a')
     src = _flatten_dataset(src)
@@ -109,13 +114,12 @@ def _create_filled_voxel_data(**kwargs):
 
 def create_voxel_data(
         model_id, edge_length_threshold=0.1, voxel_config=None, filled=False,
-        overwrite=False, example_ids=None):
+        overwrite=False):
     kwargs = dict(
         model_id=model_id,
         edge_length_threshold=edge_length_threshold,
         voxel_config=voxel_config,
-        overwrite=overwrite,
-        example_ids=example_ids
+        overwrite=overwrite
     )
     if filled:
         _create_filled_voxel_data(**kwargs)

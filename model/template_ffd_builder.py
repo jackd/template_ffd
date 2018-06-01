@@ -420,13 +420,18 @@ class TemplateFfdBuilder(builder.ModelBuilder):
 
     def get_prediction_to_mesh_fn(self, edge_length_threshold=None):
         cat_id = self.cat_id
-        cat_ids, example_ids, bs, ps = zip(*self.get_ffd_data())
+        if not isinstance(cat_id, (list, tuple)):
+            cat_id = [cat_id]
+        with get_ffd_dataset(self.cat_id, self.n,
+                             edge_length_threshold=edge_length_threshold) as d:
+            cat_ids, example_ids, bs, ps = zip(*self.get_ffd_data(d))
         with get_template_mesh_dataset(cat_id, edge_length_threshold) as \
                 mesh_dataset:
             all_faces = []
             all_vertices = []
-            for k in example_ids:
-                sg = mesh_dataset[k]
+
+            for cat_id, example_id in zip(cat_ids, example_ids):
+                sg = mesh_dataset[cat_id, example_id]
                 all_faces.append(np.array(sg['faces']))
                 all_vertices.append(np.array(sg['vertices']))
 

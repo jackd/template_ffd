@@ -46,7 +46,7 @@ def get_split_template_mesh_dataset(cat_id, edge_length_threshold):
         cat_id, edge_length_threshold).get_saved_dataset()
 
 
-def get_template_mesh_dataset(cat_id, edge_length_threshold=None):
+def _get_template_mesh_dataset(cat_id, edge_length_threshold=None):
     import shapenet.core.meshes as m
     if edge_length_threshold is None:
         return m.get_mesh_dataset(cat_id).subset(get_template_ids(cat_id))
@@ -54,3 +54,13 @@ def get_template_mesh_dataset(cat_id, edge_length_threshold=None):
         return get_split_template_mesh_dataset(
             cat_id=cat_id,
             edge_length_threshold=edge_length_threshold)
+
+
+def get_template_mesh_dataset(cat_id, edge_length_threshold=None):
+    if isinstance(cat_id, (list, tuple)):
+        from dids.core import BiKeyDataset
+        datasets = {c: _get_template_mesh_dataset(c, edge_length_threshold)
+                    for c in cat_id}
+        return BiKeyDataset(datasets)
+    else:
+        return _get_template_mesh_dataset(cat_id, edge_length_threshold)

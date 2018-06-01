@@ -40,7 +40,7 @@ def create_predictions_data(model_id, overwrite=False):
 
 def _get_predictions_dataset(model_id, mode):
     return NestedHdf5Dataset(
-        get_predictions_data_path(model_id), mode, depth=3)
+        get_predictions_data_path(model_id), depth=3, mode=mode)
 
 
 def get_predictions_dataset(model_id, mode='r'):

@@ -7,35 +7,30 @@ import template_ffd.inference.clouds as clouds
 from template_ffd.model import get_builder
 from path import get_eval_path
 from point_cloud import get_lazy_evaluation_dataset
-from retrofit import retrofit_eval_fn
 
 
 def _get_lazy_emd_dataset(inf_cloud_dataset, cat_id, n_samples):
     return get_lazy_evaluation_dataset(
         inf_cloud_dataset, cat_id, n_samples,
-        lambda c0, c1: np_metrics.emd(c0, c1) / n_samples)
+        lambda c0, c1: np_metrics.emd(c0, c1))
 
 
 class _TemplateEmdAutoSavingManager(JsonAutoSavingManager):
-    def __init__(self, model_id, n_samples=1024, view_index=None):
+    def __init__(self, model_id, n_samples=1024):
         self._model_id = model_id
         self._n_samples = n_samples
-        self._view_index = view_index
 
     @property
     def path(self):
-        args = ['emd', 'template', str(self._n_samples)]
-        if self._view_index is None:
-            args.append('%s.json' % self._model_id)
-        else:
-            args.extend((self._model_id, 'v%d.hdf5' % self._view_index))
-        return get_eval_path(*args)
+        return get_eval_path(
+            'emd', 'template', str(self._n_samples),
+            '%s.json' % self._model_id)
 
     @property
     def saving_message(self):
         return ('Creating chosen template EMD data\n'
-                'model_id: %s\nn_samples: %d\nview_index: %s' %
-                (self._model_id, self._n_samples, str(self._view_index)))
+                'model_id: %s\nn_samples: %d' %
+                (self._model_id, self._n_samples))
 
     def get_lazy_dataset(self):
         from shapenet.core.point_clouds import get_point_cloud_dataset
@@ -57,7 +52,7 @@ class _TemplateEmdAutoSavingManager(JsonAutoSavingManager):
                 clouds.append(np.array(gt_clouds[example_id]))
 
         predictions = get_predictions_dataset(
-            self._model_id, view_index=self._view_index)
+            self._model_id)
         inf_cloud_ds = predictions.map(lambda i: clouds[i].copy())
         return _get_lazy_emd_dataset(inf_cloud_ds, cat_id, self._n_samples)
 
@@ -89,14 +84,9 @@ class _EmdAutoSavingManager(JsonAutoSavingManager):
 class _PreSampledEmdAutoSavingManager(_EmdAutoSavingManager):
     @property
     def path(self):
-        view_index = self._kwargs.get('view_index', None)
-        args = ['emd', 'presampled', str(self._n_samples)]
-
-        if view_index is None:
-            args.append('%s.json' % self._model_id)
-        else:
-            args.extend((self._model_id, 'v%d.json' % view_index))
-        return get_eval_path(*args)
+        return get_eval_path(
+            'emd', 'presampled', str(self._n_samples),
+            '%s.json' % self._model_id)
 
     def get_inferred_cloud_dataset(self):
         return clouds.get_inferred_cloud_dataset(
@@ -107,14 +97,9 @@ class _PreSampledEmdAutoSavingManager(_EmdAutoSavingManager):
 class _PostSampledEmdAutoSavingManager(_EmdAutoSavingManager):
     @property
     def path(self):
-        view_index = self._kwargs.get('view_index', None)
-        args = ['emd', 'postsampled', str(self._n_samples)]
-
-        if view_index is None:
-            args.append('%s.json' % self._model_id)
-        else:
-            args.extend((self._model_id, 'v%d.json' % view_index))
-        return get_eval_path(*args)
+        return get_eval_path(
+            'emd', 'postsampled', str(self._n_samples),
+            '%s.json' % self._model_id)
 
     def get_inferred_cloud_dataset(self):
         return clouds.get_inferred_cloud_dataset(
@@ -129,27 +114,18 @@ def get_emd_manager(model_id, pre_sampled=True, **kwargs):
         return _PostSampledEmdAutoSavingManager(model_id, **kwargs)
 
 
-def _get_emd_average(model_id, pre_sampled=True, **kwargs):
+def get_emd_average(model_id, pre_sampled=True, **kwargs):
     import os
-    from shapenet.core import cat_desc_to_id
-    from template_ffd.data.ids import get_example_ids
-    from template_ffd.model import load_params
     manager = get_emd_manager(model_id, pre_sampled, **kwargs)
-    cat_id = cat_desc_to_id(load_params(model_id)['cat_desc'])
-    n_eval = len(get_example_ids(cat_id, 'eval'))
     values = None
     if os.path.isfile(manager.path):
         with manager.get_saving_dataset('r') as ds:
-            if len(ds) == n_eval:
                 values = np.array(tuple(ds.values()))
     if values is None:
         manager.save_all()
         with manager.get_saving_dataset('r') as ds:
             values = np.array(tuple(ds.values()))
     return np.mean(values)
-
-
-get_emd_average = retrofit_eval_fn(_get_emd_average)
 
 
 def get_template_emd_manager(model_id, n_samples=1024):

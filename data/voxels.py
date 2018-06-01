@@ -7,7 +7,7 @@ _voxels_dir = os.path.join(
 
 
 def fill_voxels(voxels):
-    import nuympy as np
+    import numpy as np
     from util3d.voxel.manip import filled_voxels
     from util3d.voxel.binvox import DenseVoxels
     if isinstance(voxels, np.ndarray):
@@ -30,18 +30,13 @@ def _get_filled_gt_voxel_dataset(cat_id, mode):
     return bvd.BinvoxDataset(folder, mode=mode)
 
 
-def create_filled_gt_data(cat_id, example_ids=None, overwrite=False):
-    from ids import get_example_ids
-    unfilled = get_unfilled_gt_voxel_dataset(cat_id)
-    if example_ids is None:
-        example_ids = get_example_ids(cat_id, 'eval')
-    unfilled = unfilled.subset(example_ids)
+def create_filled_gt_data(cat_id, overwrite=False):
+    src = get_unfilled_gt_voxel_dataset(cat_id)
     dst = _get_filled_gt_voxel_dataset(cat_id, 'a')
-    with unfilled:
+    with src:
         with dst:
             create_filled_data(
-                unfilled, dst,
-                overwrite=overwrite,
+                src, dst, overwrite=overwrite,
                 message='Filling ground truth voxels...')
 
 

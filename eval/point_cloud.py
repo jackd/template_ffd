@@ -28,7 +28,8 @@ def get_lazy_evaluation_dataset(inf_cloud_ds, cat_id, n_samples, eval_fn):
     gt_cloud_ds = gt_cloud_ds.map_keys(lambda key: key[:2])
 
     zipped = Dataset.zip(
-        inf_cloud_ds, gt_cloud_ds, normalization_ds).subset(keys)
+        inf_cloud_ds, gt_cloud_ds, normalization_ds).subset(
+            keys, check_present=False)
 
     def map_fn(data):
         inf_cloud, gt_cloud, norm_params = data

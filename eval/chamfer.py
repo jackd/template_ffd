@@ -119,21 +119,22 @@ def get_chamfer_manager(model_id, pre_sampled=True, **kwargs):
 
 def get_chamfer_average(model_id, pre_sampled=True, cat_desc=None, **kwargs):
     import os
-    from template_ffd.model import load_params
+    from shapenet.core import cat_desc_to_id
     manager = get_chamfer_manager(model_id, pre_sampled, **kwargs)
-    if cat_desc is None:
-        cat_desc = load_params(model_id)['cat_desc']
-    if not isinstance(cat_desc, (list, tuple)):
-        cat_desc = [cat_desc]
 
     values = None
     if os.path.isfile(manager.path):
         with manager.get_saving_dataset('r') as ds:
             values = np.array(tuple(ds.values()))
-    if values is None:
+    if values is None or len(values) == 0:
         manager.save_all()
-        with manager.get_saving_dataset('r') as ds:
-            values = np.array(tuple(ds.values()))
+    with manager.get_saving_dataset('r') as ds:
+        if cat_desc is not None:
+            if not isinstance(cat_desc, (list, tuple, set)):
+                cat_desc = [cat_desc]
+            cat_id = set(cat_desc_to_id(cat_desc))
+            ds = ds.filter_keys(lambda key: key[0] in cat_id)
+        values = np.array(tuple(ds.values()))
     return np.mean(values)
 
 

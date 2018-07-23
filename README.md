@@ -107,3 +107,6 @@ If you find this code useful in your research, please cite the [following paper]
   year={2018}
 }
 ```
+
+## CHANGELOG
+Since the initial release, a small bug has been fixed where batch normalization was being applied both before and after activations in some cases. This shouldn't make a massive difference to performance, but may mean models previously trained can no longer be loaded properly. To revert to older functionality, add `'use_bn_bugged_version': true` to the params file.

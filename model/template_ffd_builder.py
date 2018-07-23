@@ -9,6 +9,27 @@ from template_ffd.data.ids import get_example_ids
 from template_ffd.templates.mesh import get_template_mesh_dataset
 
 
+def add_update_ops(ops):
+    """
+    Add specified ops to UPDATE_OPS collection if not already present.
+
+    Newer versions of tf.keras.Model add update ops to the models update s,
+    but not to the graph collection. This fixes that if they are expected to
+    also be added to tf.GraphKeys.UPDATE_OPS.
+
+    Args:
+        ops: iterable of operations to be added to tf.GraphKeys.UPDATE_OPS if
+            not already present
+    Returns:
+        None
+    """
+    update_ops = set(tf.get_collection(tf.GraphKeys.UPDATE_OPS))
+    ops = set(ops)
+    for op in ops:
+        if op not in update_ops:
+            tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, op)
+
+
 def _get_cat_template_ids(cat_id, template_idxs):
     from template_ffd.templates.ids import get_template_ids
     template_ids = get_template_ids(cat_id)
@@ -62,6 +83,7 @@ def get_mobilenet_features(image, mode, load_weights=False, alpha=1):
         include_top=False,
         weights=weights,
         alpha=alpha)
+    add_update_ops(model.updates)
     return model.output
 
 
@@ -198,7 +220,7 @@ class TemplateFfdBuilder(builder.ModelBuilder):
         features = get_mobilenet_features(image, mode, load_weights, alpha)
         conv_filters = inference_params.get('final_conv_filters', [64])
 
-        use_bn_bug = self.params.get('use_bn_bugged_version', True)
+        use_bn_bug = self.params.get('use_bn_bugged_version', False)
         if use_bn_bug:
             # double batch-norm was used in training for old models
             # this is here for backwards compatibility

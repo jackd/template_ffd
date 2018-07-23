@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import random
 import numpy as np
 from dids import Dataset

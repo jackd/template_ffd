@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import os
 import json
 from template_ffd.model import get_params_path
@@ -5,7 +7,9 @@ from template_ffd.model import get_params_path
 
 def write_params(model_id, params):
     path = get_params_path(model_id)
-    if not os.path.isfile(path):
+    if os.path.isfile(path):
+        print('Params already exist for %s' % model_id)
+    else:
         with open(path, 'w') as fp:
             json.dump(params, fp)
         print('Wrote params for %s' % model_id)
@@ -15,6 +19,7 @@ cats = (
     'plane', 'car', 'bench', 'chair', 'sofa',  'table', 'cabinet', 'monitor',
     'lamp', 'speaker', 'watercraft', 'cellphone', 'pistol')
 param_types = ('b', 'e', 'w', 'r')
+use_bn_bugged_version = True
 
 params = {
     'b': {},
@@ -43,6 +48,7 @@ params = {
 }
 for k, v in params.items():
     v['inference_params'] = {'alpha': 0.25}
+    v['use_bn_bugged_version'] = use_bn_bugged_version
 
 for cat in cats:
     for p in param_types:

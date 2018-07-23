@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 """Creates params file for single model trained across 13 categories."""
 import os
 import json

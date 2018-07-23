@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import os
 import numpy as np
 from mayavi import mlab

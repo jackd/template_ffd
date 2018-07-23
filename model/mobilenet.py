@@ -15,9 +15,12 @@
 # pylint: disable=invalid-name
 # pylint: disable=unused-import
 """
-Almost exactly the same as tf.keras.applications.mobilenet.
+Almost exactly the same as tf.keras.applications.mobilenet, tf version 1.8.0
 
-Removed error checks to allow non-square input images. See # HACK lines.
+Changes:
+   * removed error checks to allow non-square input images. See # HACK lines.
+   * commented out unused exports
+   * commented out @tf_export lines
 
 
 MobileNet v1 models for Keras.
@@ -78,13 +81,13 @@ from __future__ import print_function
 import os
 
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras import constraints
-from tensorflow.python.keras import initializers
-from tensorflow.python.keras import regularizers
+# from tensorflow.python.keras import constraints
+# from tensorflow.python.keras import initializers
+# from tensorflow.python.keras import regularizers
 from tensorflow.python.keras.applications import imagenet_utils
 from tensorflow.python.keras.applications.imagenet_utils import _obtain_input_shape
-from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
-from tensorflow.python.keras.engine import InputSpec
+# from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
+# from tensorflow.python.keras.engine import InputSpec
 from tensorflow.python.keras.engine.network import get_source_inputs
 from tensorflow.python.keras.layers import Activation
 from tensorflow.python.keras.layers import BatchNormalization
@@ -97,10 +100,10 @@ from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.layers import Reshape
 from tensorflow.python.keras.layers import ZeroPadding2D
 from tensorflow.python.keras.models import Model
-from tensorflow.python.keras.utils import conv_utils
+# from tensorflow.python.keras.utils import conv_utils
 from tensorflow.python.keras.utils.data_utils import get_file
 from tensorflow.python.platform import tf_logging as logging
-from tensorflow.python.util.tf_export import tf_export
+# from tensorflow.python.util.tf_export import tf_export
 
 
 BASE_WEIGHT_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.6/'
@@ -110,7 +113,7 @@ def relu6(x):
   return K.relu(x, max_value=6)
 
 
-@tf_export('keras.applications.mobilenet.preprocess_input')
+# @tf_export('keras.applications.mobilenet.preprocess_input')
 def preprocess_input(x):
   """Preprocesses a numpy array encoding a batch of images.
 
@@ -123,8 +126,8 @@ def preprocess_input(x):
   return imagenet_utils.preprocess_input(x, mode='tf')
 
 
-@tf_export('keras.applications.MobileNet',
-           'keras.applications.mobilenet.MobileNet')
+# @tf_export('keras.applications.MobileNet',
+#            'keras.applications.mobilenet.MobileNet')
 def MobileNet(input_shape=None,
               alpha=1.0,
               depth_multiplier=1,

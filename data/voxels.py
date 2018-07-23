@@ -1,6 +1,7 @@
 import os
 import util3d.voxel.dataset as bvd
 from shapenet.core.voxels.config import VoxelConfig
+from dids.core import BiKeyDataset
 
 _voxels_dir = os.path.join(
     os.path.realpath(os.path.dirname(__file__)), '_filled_voxels')
@@ -23,11 +24,20 @@ def create_filled_data(unfilled_dataset, dst, overwrite=False, message=None):
         dst.save_dataset(src, overwrite=overwrite, message=message)
 
 
-def _get_filled_gt_voxel_dataset(cat_id, mode):
+def _get_filled_gt_voxel_dataset_single(cat_id, mode):
     folder = os.path.join(_voxels_dir, cat_id)
     if not os.path.isdir(folder):
         os.makedirs(folder)
     return bvd.BinvoxDataset(folder, mode=mode)
+
+
+def _get_filled_gt_voxel_dataset(cat_id, mode):
+    if isinstance(cat_id, (list, tuple)):
+        datasets = {k: _get_filled_gt_voxel_dataset_single(k, mode)
+                    for k in cat_id}
+        return BiKeyDataset(datasets)
+    else:
+        return _get_filled_gt_voxel_dataset_single(cat_id, mode)
 
 
 def create_filled_gt_data(cat_id, overwrite=False):
@@ -46,9 +56,17 @@ def get_filled_gt_voxel_dataset(cat_id, auto_save=True, example_ids=None):
     return _get_filled_gt_voxel_dataset(cat_id, 'r')
 
 
+def _get_unfilled_gt_voxel_dataset_single(cat_id):
+    return VoxelConfig().get_dataset(cat_id)
+
+
 def get_unfilled_gt_voxel_dataset(cat_id):
-    config = VoxelConfig()
-    return config.get_dataset(cat_id)
+    if isinstance(cat_id, (list, tuple)):
+        datasets = {
+            k: _get_unfilled_gt_voxel_dataset_single(k) for k in cat_id}
+        return BiKeyDataset(datasets)
+    else:
+        return _get_unfilled_gt_voxel_dataset_single(cat_id)
 
 
 def get_gt_voxel_dataset(

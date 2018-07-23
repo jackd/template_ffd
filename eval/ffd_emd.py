@@ -10,15 +10,17 @@ from point_cloud import get_lazy_evaluation_dataset
 
 
 def _get_lazy_emd_dataset(inf_cloud_dataset, cat_id, n_samples):
+    def eval_fn(c0, c1):
+        return np_metrics.emd(c0, c1)
     return get_lazy_evaluation_dataset(
-        inf_cloud_dataset, cat_id, n_samples,
-        lambda c0, c1: np_metrics.emd(c0, c1))
+        inf_cloud_dataset, cat_id, n_samples, eval_fn)
 
 
 class _TemplateEmdAutoSavingManager(JsonAutoSavingManager):
     def __init__(self, model_id, n_samples=1024):
         self._model_id = model_id
         self._n_samples = n_samples
+        self._nested_depth = 3
 
     @property
     def path(self):
@@ -62,6 +64,7 @@ class _EmdAutoSavingManager(JsonAutoSavingManager):
         self._model_id = model_id
         self._n_samples = n_samples
         self._kwargs = kwargs
+        self._nested_depth = 3
 
     @property
     def saving_message(self):

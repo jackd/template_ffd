@@ -4,10 +4,10 @@
 def clear_results(model_id, actual=False):
     import os
     import shutil
-    from template_ffd.inference.predictions import get_predictions_dataset
+    from template_ffd.inference.predictions import get_predictions_data_path
     from template_ffd.inference.meshes import InferredMeshManager
     from template_ffd.inference.clouds import get_cloud_manager
-    from template_ffd.inference.voxels import get_voxel_dataset
+    from template_ffd.inference.voxels import get_voxel_subdir
     from template_ffd.eval.chamfer import \
         get_chamfer_manager, get_template_chamfer_manager
     from template_ffd.eval.iou import IouAutoSavingManager
@@ -22,8 +22,8 @@ def clear_results(model_id, actual=False):
             if actual:
                 shutil.rmtree(path)
 
-    predictions_dataset = get_predictions_dataset(model_id)
-    maybe_remove(predictions_dataset.path)
+    predictions_path = get_predictions_data_path(model_id)
+    maybe_remove(predictions_path)
     maybe_remove(get_cloud_manager(model_id, pre_sampled=True).path)
     maybe_remove(get_chamfer_manager(model_id, pre_sampled=True).path)
 
@@ -34,9 +34,8 @@ def clear_results(model_id, actual=False):
             model_id, pre_sampled=False, edge_length_threshold=elt).path)
 
         for filled in (True, False):
-            dataset = get_voxel_dataset(
-                model_id, elt, filled=filled, auto_save=False)
-            maybe_remove(dataset.root_dir)
+            subdir = get_voxel_subdir(model_id, elt, filled=filled)
+            maybe_remove(subdir)
             maybe_remove(IouAutoSavingManager(model_id, elt, filled).path)
 
         maybe_remove(

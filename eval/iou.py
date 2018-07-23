@@ -66,6 +66,7 @@ class IouAutoSavingManager(JsonAutoSavingManager):
         self._filled = filled
         self._voxel_config = VoxelConfig() if voxel_config is None else \
             voxel_config
+        self._nested_depth = 3
 
     @property
     def saving_message(self):
@@ -86,6 +87,8 @@ class IouAutoSavingManager(JsonAutoSavingManager):
 
     def get_lazy_dataset(self):
         cat_id = cat_desc_to_id(load_params(self._model_id)['cat_desc'])
+        if not isinstance(cat_id, (list, tuple)):
+            cat_id = [cat_id]
         inferred_dataset = get_voxel_dataset(
             self._model_id, self._edge_length_threshold, self._voxel_config,
             filled=self._filled)

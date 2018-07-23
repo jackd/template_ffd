@@ -36,7 +36,8 @@ def _get_base_voxel_dataset(
 
 
 def _flatten_dataset(dataset):
-    def key_map_fn(*args):
+
+    def key_map_fn(args):
         folder = os.path.join(*args[:-1])
         if not os.path.isdir(folder):
             os.makedirs(folder)
@@ -57,7 +58,8 @@ def get_voxel_dataset(
         voxel_config=voxel_config, filled=filled,
         auto_save=auto_save)
 
-    return _flatten_dataset(base_dataset)
+    dataset = _flatten_dataset(base_dataset)
+    return dataset
 
 
 def _create_unfilled_voxel_data(
@@ -80,18 +82,21 @@ def _create_unfilled_voxel_data(
         aw=voxel_config.aw)
 
     with mesh_dataset:
+        print('Creating unfilled voxel data')
+        for k, v in kwargs.items():
+            print('%s = %s' % (k, v))
         bar = IncrementalBar(max=len(mesh_dataset))
-        for k, mesh in mesh_dataset.items():
-            vertices, faces = (
-                np.array(mesh[k]) for k in ('vertices', 'faces'))
+        for k in mesh_dataset.keys():
             binvox_path = voxel_dataset.path(os.path.join(*k))
-            folder = os.path.dirname(binvox_path)
-            if not os.path.isdir(folder):
-                os.makedirs(folder)
-            # x, z, y = vertices.T
-            # vertices = np.stack([x, y, z], axis=1)
-            bio.mesh_to_binvox(
-                vertices, faces, binvox_path, **kwargs)
+            if not os.path.isfile(binvox_path):
+                mesh = mesh_dataset[k]
+                vertices, faces = (
+                    np.array(mesh[k]) for k in ('vertices', 'faces'))
+                folder = os.path.dirname(binvox_path)
+                if not os.path.isdir(folder):
+                    os.makedirs(folder)
+                bio.mesh_to_binvox(
+                    vertices, faces, binvox_path, **kwargs)
             bar.next()
         bar.finish()
 
@@ -103,6 +108,7 @@ def _create_filled_voxel_data(**kwargs):
     src = _get_base_voxel_dataset(filled=False, **kwargs)
     dst = bvd.BinvoxDataset(
         get_voxel_subdir(filled=True, **kwargs), mode='a')
+
     src = _flatten_dataset(src)
     dst = _flatten_dataset(dst)
     with src:

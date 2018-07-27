@@ -7,6 +7,7 @@ class InferredMeshManager(Hdf5AutoSavingManager):
     def __init__(self, model_id, edge_length_threshold=0.1):
         self._model_id = model_id
         self._edge_length_threshold = edge_length_threshold
+        self._nested_depth = 3
 
     @property
     def path(self):

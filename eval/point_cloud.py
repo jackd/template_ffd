@@ -9,8 +9,6 @@ from template_ffd.data.ids import get_example_ids
 
 def _get_lazy_evaluation_dataset_single(
         inf_cloud_ds, cat_id, n_samples, eval_fn):
-    if not isinstance(cat_id, (list, tuple)):
-        cat_id = [cat_id]
 
     def sample_fn(cloud):
         return sample_points(np.array(cloud), n_samples)

@@ -1,6 +1,6 @@
 import numpy as np
 from dids.core import Dataset
-from dids.core import BiKeyDataset
+# from dids.core import BiKeyDataset
 from shapenet.core.point_clouds import get_point_cloud_dataset
 from util3d.point_cloud import sample_points
 from normalize import get_normalization_params_dataset, normalized
@@ -41,11 +41,20 @@ def _get_lazy_evaluation_dataset_single(
 
 
 def get_lazy_evaluation_dataset(inf_cloud_ds, cat_id, n_samples, eval_fn):
-    def f(cid):
-        return _get_lazy_evaluation_dataset_single(
-            inf_cloud_ds, cid, n_samples, eval_fn)
-    if isinstance(cat_id, (list, tuple)):
-        datasets = {k: f(k) for k in cat_id}
-        return BiKeyDataset(datasets)
-    else:
-        return f(cat_id)
+    if not isinstance(cat_id, (list, tuple)):
+        cat_id = [cat_id]
+    return _get_lazy_evaluation_dataset_single(
+        inf_cloud_ds, cat_id, n_samples, eval_fn)
+
+    # if isinstance(cat_id, (list, tuple)):
+    #     return _get_lazy_evaluation_dataset_single(
+    #             inf_cloud_ds, cat_id, n_samples, eval_fn)
+
+    # def f(cid):
+    #     return _get_lazy_evaluation_dataset_single(
+    #         inf_cloud_ds, cid, n_samples, eval_fn)
+    # if isinstance(cat_id, (list, tuple)):
+    #     datasets = {k: f(k) for k in cat_id}
+    #     return BiKeyDataset(datasets)
+    # else:
+    #     return f(cat_id)

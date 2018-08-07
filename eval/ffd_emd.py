@@ -125,7 +125,11 @@ def get_emd_average(model_id, pre_sampled=True, **kwargs):
         with manager.get_saving_dataset('r') as ds:
                 values = np.array(tuple(ds.values()))
     if values is None:
-        manager.save_all()
+        try:
+            manager.save_all()
+        except Exception:
+            os.remove(manager.path)
+            raise
         with manager.get_saving_dataset('r') as ds:
             values = np.array(tuple(ds.values()))
     return np.mean(values)

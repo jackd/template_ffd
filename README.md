@@ -21,7 +21,7 @@ So long as your `PYTHONPATH` is set as above, these repositories should work 'ou
 
 Install pip dependencies
 ```
-pip install h5py progress numpy
+pip install h5py progress numpy pyemd
 ```
 
 To use visualizations you'll also need `mayavi`.
